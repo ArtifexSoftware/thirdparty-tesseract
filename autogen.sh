@@ -95,12 +95,12 @@ $LIBTOOLIZE --automake || bail_out
 echo "Running autoconf"
 autoconf || bail_out
 
-if grep -q PKG_CHECK_MODULES configure; then
-  # The generated configure is invalid because pkg-config is unavailable.
-  rm configure
-  echo "Missing pkg-config. Check the build requirements."
-  bail_out
-fi
+#if grep -q PKG_CHECK_MODULES configure; then
+#  # The generated configure is invalid because pkg-config is unavailable.
+#  rm configure
+#  echo "Missing pkg-config. Check the build requirements."
+#  bail_out
+#fi
 
 # --- Step 4: Generate config.h.in from:
 #             . configure.ac (look for AM_CONFIG_HEADER tag or AC_CONFIG_HEADER tag)
