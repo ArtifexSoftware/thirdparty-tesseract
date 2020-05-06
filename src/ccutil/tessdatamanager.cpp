@@ -34,20 +34,21 @@
 #include "helpers.h"
 #include "serialis.h"
 #include "strngs.h"
+#include "tess_version.h"
 #include "tprintf.h"
 #include "params.h"
 
 namespace tesseract {
 
 TessdataManager::TessdataManager() : reader_(nullptr), is_loaded_(false), swap_(false) {
-  SetVersionString(PACKAGE_VERSION);
+  SetVersionString(TESSERACT_VERSION_STR);
 }
 
 TessdataManager::TessdataManager(FileReader reader)
   : reader_(reader),
     is_loaded_(false),
     swap_(false) {
-  SetVersionString(PACKAGE_VERSION);
+  SetVersionString(TESSERACT_VERSION_STR);
 }
 
 // Lazily loads from the the given filename. Won't actually read the file
