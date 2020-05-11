@@ -136,6 +136,12 @@ AM_CONDITIONAL([FMA_OPT], $fma)
 AX_CHECK_COMPILE_FLAG([-msse4.1], [sse41=true], [sse41=false], [$WERROR])
 AM_CONDITIONAL([SSE41_OPT], $sse41)
 
+AX_CHECK_COMPILE_FLAG([-mfpu=neon], [neon=true], [neon=false], [$WERROR])
+AM_CONDITIONAL([HAVE_NEON], $neon)
+if $neon; then
+  AC_DEFINE([HAVE_NEON], [1], [Enable NEON instructions])
+fi
+
 AX_CHECK_COMPILE_FLAG([-march=native], [arch_native=true], [arch_native=false], [$WERROR])
 AM_CONDITIONAL([MARCH_NATIVE_OPT], $arch_native)
 

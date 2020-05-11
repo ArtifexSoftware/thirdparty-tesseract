@@ -26,6 +26,9 @@ endif
 if SSE41_OPT
 noinst_LTLIBRARIES += libtesseract_sse.la
 endif
+if NEON_OPT
+noinst_LTLIBRARIES += libtesseract_neon.la
+endif
 noinst_LTLIBRARIES += libtesseract_arch.la
 
 libtesseract_arch_la_CPPFLAGS = $(AM_CPPFLAGS)
@@ -44,6 +47,10 @@ endif
 if SSE41_OPT
 libtesseract_arch_la_CPPFLAGS += -DSSE4_1
 libtesseract_sse_la_CXXFLAGS = -msse4.1
+endif
+if NEON_OPT
+libtesseract_arch_la_CPPFLAGS += -DNEON
+libtesseract_neon_la_CXXFLAGS = -mfpu=neon
 endif
 
 libtesseract_native_la_CXXFLAGS = -O3 -ffast-math
@@ -68,4 +75,8 @@ endif
 
 if SSE41_OPT
 libtesseract_sse_la_SOURCES = dotproductsse.cpp intsimdmatrixsse.cpp
+endif
+
+if NEON_OPT
+libtesseract_neon_la_SOURCES = intsimdmatrixneon.cpp
 endif
