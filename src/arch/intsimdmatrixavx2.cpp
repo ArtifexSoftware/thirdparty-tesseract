@@ -154,9 +154,7 @@ static void PartialMatrixDotVector64(const int8_t* wi, const double* scales,
   ExtractResults(result4, shift_id, wi, scales, kNumOutputsPerRegister, v);
   ExtractResults(result5, shift_id, wi, scales, kNumOutputsPerRegister, v);
   ExtractResults(result6, shift_id, wi, scales, kNumOutputsPerRegister, v);
-  num_out -= kNumOutputsPerRegister * 7;
-  ExtractResults(result7, shift_id, wi, scales,
-                 std::min(kNumOutputsPerRegister, num_out), v);
+  ExtractResults(result7, shift_id, wi, scales, kNumOutputsPerRegister, v);
 }
 
 // Computes part of matrix.vector v = Wu. Computes N=32 results.
@@ -198,9 +196,7 @@ static void PartialMatrixDotVector32(const int8_t* wi, const double* scales,
   ExtractResults(result0, shift_id, wi, scales, kNumOutputsPerRegister, v);
   ExtractResults(result1, shift_id, wi, scales, kNumOutputsPerRegister, v);
   ExtractResults(result2, shift_id, wi, scales, kNumOutputsPerRegister, v);
-  num_out -= kNumOutputsPerRegister * 3;
-  ExtractResults(result3, shift_id, wi, scales,
-                 std::min(kNumOutputsPerRegister, num_out), v);
+  ExtractResults(result3, shift_id, wi, scales, kNumOutputsPerRegister, v);
 }
 
 // Computes part of matrix.vector v = Wu. Computes N=16 results.
@@ -236,9 +232,7 @@ static void PartialMatrixDotVector16(const int8_t* wi, const double* scales,
     }
   }
   ExtractResults(result0, shift_id, wi, scales, kNumOutputsPerRegister, v);
-  num_out -= kNumOutputsPerRegister;
-  ExtractResults(result1, shift_id, wi, scales,
-                 std::min(kNumOutputsPerRegister, num_out), v);
+  ExtractResults(result1, shift_id, wi, scales, kNumOutputsPerRegister, v);
 }
 
 // Computes part of matrix.vector v = Wu. Computes N=8 results.
@@ -271,7 +265,7 @@ static void PartialMatrixDotVector8(const int8_t* wi, const double* scales,
       MultiplyGroup(rep_input, ones, wi, weights, reps, result0);
     }
   }
-  ExtractResults(result0, shift_id, wi, scales, num_out, v);
+  ExtractResults(result0, shift_id, wi, scales, kNumOutputsPerRegister, v);
 }
 
 static void matrixDotVector(int dim1, int dim2, const int8_t* wi,
