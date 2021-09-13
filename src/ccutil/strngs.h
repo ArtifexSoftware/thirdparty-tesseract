@@ -37,6 +37,7 @@ class STRING : public std::string {
   using std::string::string;
   STRING(const std::string &s) : std::string(s) {}
   STRING(const char *s) : std::string(s ? s : "") {}
+  STRING() : std::string("") {}
 
   // Writes to the given file. Returns false in case of error.
   TESS_API
