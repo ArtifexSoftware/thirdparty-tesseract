@@ -6,11 +6,11 @@
 
 If you think you found a bug in Tesseract, please create an issue.
 
-Use the [users mailing-list](https://groups.google.com/d/forum/tesseract-ocr) instead of creating an Issue if ...
+Use the [user forum](https://groups.google.com/g/tesseract-ocr) instead of creating an issue if ...
 * You have problems using Tesseract and need some help.
 * You have problems installing the software.
 * You are not satisfied with the accuracy of the OCR, and want to ask how you can improve it. Note: You should first read the [ImproveQuality](https://tesseract-ocr.github.io/tessdoc/ImproveQuality.html) documentation.
-* You are trying to train Tesseract and you have a problem and/or want to ask a question about the training process. Note: You should first read the **official** guides [[1]](https://tesseract-ocr.github.io/tessdoc/) or [[2]](https://tesseract-ocr.github.io/tessdoc/Training-Tesseract.html) found in the project documentation.
+* You are trying to train Tesseract and you have a problem and/or want to ask a question about the training process. Note: You should first read the **official** guides [[1]](https://tesseract-ocr.github.io/tessdoc/) or [[2]](https://tesseract-ocr.github.io/tessdoc/tess5/TrainingTesseract-5.html) found in the project documentation.
 * You have a general question.
 
 An issue should only be reported if the platform you are using is one of these:
@@ -60,7 +60,7 @@ Use `Preview` before you send your issue. Read it again before sending.
 
 Note that most of the people that respond to issues and answer questions are either other 'regular' users or **volunteers** developers. Please be nice to them :-)
 
-The [tesseract developers](http://groups.google.com/group/tesseract-dev/) forum should be used to discuss Tesseract development: bug fixes, enhancements, add-ons for Tesseract.
+The [tesseract developers](https://groups.google.com/g/tesseract-dev) forum should be used to discuss Tesseract development: bug fixes, enhancements, add-ons for Tesseract.
 
 Sometimes you will not get a respond to your issue or question. We apologize in advance! Please don't take it personally. There can be many reasons for this, including: time limits, no one knows the answer (at least not the ones that are available at that time) or just that
 your question has been asked (and has been answered) many times before...
@@ -69,12 +69,12 @@ your question has been asked (and has been answered) many times before...
 
 You should always make sure your changes build and run successfully.
 
-For that, your clone needs to have all submodules (`abseil`, `googletest`, `test`) included. To do so, either specify `--recurse-submodules` during the initial clone, or run `git submodule update --init --recursive NAME` for each `NAME` later. If `configure` already created those directories (blocking the clone), remove them first (or `make distclean`), then clone and reconfigure.
+For that, your clone needs to have all submodules (`googletest`, `test`) included. To do so, either specify `--recurse-submodules` during the initial clone, or run `git submodule update --init --recursive NAME` for each `NAME` later. If `configure` already created those directories (blocking the clone), remove them first (or `make distclean`), then clone and reconfigure.
 
-Have a look at [the README](./README.md) and [testing README](./test/testing/README.md) and the [documentation](https://tesseract-ocr.github.io/tessdoc/Compiling-%E2%80%93-GitInstallation.html#unit-test-builds) on installation.
+Have a look at [the README](./README.md) and [testing README](https://github.com/tesseract-ocr/test/blob/main/README.md) and the [documentation](https://tesseract-ocr.github.io/tessdoc/Compiling-%E2%80%93-GitInstallation.html#unit-test-builds) on installation.
 
 In short, after running `configure` from the build directory of your choice, to build the library and CLI, run `make`. To test it, run `make check`. To build the training tools, run `make training`.
 
-As soon as your changes are building and tests are succeeding, you can publish them. If you have not already, please [fork](https://guides.github.com/activities/forking/) tesseract (somewhere) on GitHub, and push your changes to that fork (in a new branch). Then [submit as PR](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork).
+As soon as your changes are building and tests are succeeding, you can publish them. If you have not already, please [fork](https://docs.github.com/en/get-started/quickstart/contributing-to-projects) tesseract (somewhere) on GitHub, and push your changes to that fork (in a new branch). Then [submit as PR](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork).
 
-Please also keep track of reports from CI (automated build status) and Coverity/LGTM (quality scan). When the indicators show deterioration after your changes, further action may be required to improve them.
+Please also keep track of reports from CI (automated build status) and Coverity/CodeQL (quality scan). When the indicators show deterioration after your changes, further action may be required to improve them.

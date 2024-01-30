@@ -34,9 +34,9 @@ struct TESSLINE;
 extern ScrollView *blob_window;        // Window for blobs
 extern ScrollView::Color color_list[]; // Colors for outlines
 
-extern BOOL_VAR_H(wordrec_display_all_blobs, 0, "Display Blobs");
+extern BOOL_VAR_H(wordrec_display_all_blobs);
 
-extern BOOL_VAR_H(wordrec_blob_pause, 0, "Blob pause");
+extern BOOL_VAR_H(wordrec_blob_pause);
 
 #define NUM_COLORS 6
 
@@ -45,11 +45,11 @@ extern BOOL_VAR_H(wordrec_blob_pause, 0, "Blob pause");
 ----------------------------------------------------------------------*/
 void display_blob(TBLOB *blob, ScrollView::Color color);
 
-void render_blob(ScrollView* window, TBLOB *blob, ScrollView::Color color);
+void render_blob(ScrollView *window, TBLOB *blob, ScrollView::Color color);
 
-void render_edgepts(ScrollView* window, EDGEPT *edgept, ScrollView::Color color);
+void render_edgepts(ScrollView *window, EDGEPT *edgept, ScrollView::Color color);
 
-void render_outline(ScrollView* window, TESSLINE* outline, ScrollView::Color color);
+void render_outline(ScrollView *window, TESSLINE *outline, ScrollView::Color color);
 
 } // namespace tesseract
 

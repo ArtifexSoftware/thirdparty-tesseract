@@ -5,9 +5,9 @@
 # ----------------------------------------
 # Initialization
 # ----------------------------------------
-AC_PREREQ([2.63])
+AC_PREREQ([2.69])
 AC_INIT([tesseract],
-        [m4_esyscmd_s([test -d .git && git describe --abbrev=4 || cat VERSION])],
+        [m4_esyscmd_s([test -d .git && git describe --abbrev=4 2>/dev/null || cat VERSION])],
         [https://github.com/tesseract-ocr/tesseract/issues],,
         [https://github.com/tesseract-ocr/tesseract/])
 
@@ -20,16 +20,16 @@ AC_LANG_COMPILER_REQUIRE
 CXXFLAGS=${CXXFLAGS:-""}
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([config])
-AC_CONFIG_SRCDIR([src/api/tesseractmain.cpp])
+AC_CONFIG_SRCDIR([src/tesseract.cpp])
 AC_PREFIX_DEFAULT([/usr/local])
 
 # Automake configuration. Do not require README file (we use README.md).
-AM_INIT_AUTOMAKE([foreign subdir-objects])
+AM_INIT_AUTOMAKE([foreign subdir-objects nostdinc])
 
 # Define date of package, etc. Could be useful in auto-generated
 # documentation.
-PACKAGE_YEAR=2020
-PACKAGE_DATE="12/31"
+PACKAGE_YEAR=2024
+PACKAGE_DATE="01/18"
 
 abs_top_srcdir=`AS_DIRNAME([$0])`
 
@@ -68,12 +68,16 @@ GENERIC_RELEASE=$GENERIC_MAJOR_VERSION.$GENERIC_MINOR_VERSION
 AC_SUBST([GENERIC_RELEASE])
 AC_SUBST([GENERIC_VERSION])
 
-AC_CONFIG_HEADERS([config_auto.h:config/config.h.in])
+AC_CONFIG_HEADERS([include/config_auto.h:config/config.h.in])
 
 # default conditional
 AM_CONDITIONAL([T_WIN], false)
 AM_CONDITIONAL([GRAPHICS_DISABLED], false)
 AC_SUBST([AM_CPPFLAGS])
+
+# Be less noisy by default.
+# Can be overridden with `configure --disable-silent-rules` or with `make V=1`.
+AM_SILENT_RULES([yes])
 
 OPENCL_INC="/opt/AMDAPP/include"
 OPENCL_LIBS="-lOpenCL"
@@ -87,7 +91,7 @@ case "${host_os}" in
     mingw*)
         AM_CONDITIONAL([T_WIN], true)
         AM_CONDITIONAL([ADD_RT], false)
-        AC_SUBST([AM_LDFLAGS], ['-Wl,-no-undefined -Wl,--as-needed'])
+        AC_SUBST([AM_LDFLAGS], ['-no-undefined'])
         ;;
     cygwin*)
         AM_CONDITIONAL([ADD_RT], false)
@@ -125,13 +129,14 @@ AX_CHECK_COMPILE_FLAG([-Werror=unused-command-line-argument], [WERROR=-Werror=un
 
 AM_CONDITIONAL([HAVE_AVX], false)
 AM_CONDITIONAL([HAVE_AVX2], false)
+AM_CONDITIONAL([HAVE_AVX512F], false)
 AM_CONDITIONAL([HAVE_FMA], false)
 AM_CONDITIONAL([HAVE_SSE4_1], false)
 AM_CONDITIONAL([HAVE_NEON], false)
 
 case "${host_cpu}" in
 
-  *86*)
+  amd64|*86*)
 
     AX_CHECK_COMPILE_FLAG([-mavx], [avx=true], [avx=false], [$WERROR])
     AM_CONDITIONAL([HAVE_AVX], ${avx})
@@ -143,6 +148,12 @@ case "${host_cpu}" in
     AM_CONDITIONAL([HAVE_AVX2], $avx2)
     if $avx2; then
       AC_DEFINE([HAVE_AVX2], [1], [Enable AVX2 instructions])
+    fi
+
+    AX_CHECK_COMPILE_FLAG([-mavx512f], [avx512f=true], [avx512f=false], [$WERROR])
+    AM_CONDITIONAL([HAVE_AVX512F], $avx512f)
+    if $avx512f; then
+      AC_DEFINE([HAVE_AVX512F], [1], [Enable AVX512F instructions])
     fi
 
     AX_CHECK_COMPILE_FLAG([-mfma], [fma=true], [fma=false], [$WERROR])
@@ -159,7 +170,7 @@ case "${host_cpu}" in
 
     ;;
 
-  aarch64)
+  aarch64*|arm64)
 
     # ARMv8 always has NEON and does not need special compiler flags.
     AM_CONDITIONAL([HAVE_NEON], true)
@@ -174,6 +185,7 @@ case "${host_cpu}" in
       AC_DEFINE([HAVE_NEON], [1], [Enable NEON instructions])
       NEON_CXXFLAGS="-mfpu=neon"
       AC_SUBST([NEON_CXXFLAGS])
+      check_for_neon=1
     fi
 
     ;;
@@ -184,8 +196,21 @@ case "${host_cpu}" in
 
 esac
 
-AX_CHECK_COMPILE_FLAG([-march=native], [arch_native=true], [arch_native=false], [$WERROR])
-AM_CONDITIONAL([MARCH_NATIVE_OPT], $arch_native)
+# check whether feenableexcept is supported. some C libraries (e.g. uclibc) don't.
+AC_CHECK_FUNCS([feenableexcept])
+
+# additional checks for NEON targets
+if test x$check_for_neon = x1; then
+  AC_MSG_NOTICE([checking how to detect NEON availability])
+  AC_CHECK_FUNCS([getauxval elf_aux_info android_getCpuFamily])
+
+  if test $ac_cv_func_getauxval = no && test $ac_cv_func_elf_aux_info = no && test $ac_cv_func_android_getCpuFamily = no; then
+      AC_MSG_WARN([NEON is available, but we don't know how to check for it.  Will not be able to use NEON.])
+  fi
+fi
+
+AX_CHECK_COMPILE_FLAG([-fopenmp-simd], [openmp_simd=true], [openmp_simd=false], [$WERROR])
+AM_CONDITIONAL([OPENMP_SIMD], $openmp_simd)
 
 AC_ARG_WITH([extra-includes],
             [AS_HELP_STRING([--with-extra-includes=DIR],
@@ -204,6 +229,14 @@ AC_ARG_WITH([extra-libraries],
              else
                AC_MSG_ERROR([Cannot stat directory $withval])
              fi])
+
+AC_MSG_CHECKING([--enable-float32 argument])
+AC_ARG_ENABLE([float32],
+	      AS_HELP_STRING([--disable-float32], [disable float and enable double for LSTM]))
+AC_MSG_RESULT([$enable_float32])
+if test "$enable_float32" != "no"; then
+  AC_DEFINE([FAST_FLOAT], [1], [Enable float for LSTM])
+fi
 
 AC_MSG_CHECKING([--enable-graphics argument])
 AC_ARG_ENABLE([graphics],
@@ -243,15 +276,25 @@ if test "$enable_opencl" = "yes"; then
   ])
 fi
 
-# Check whether to build with support for TensorFlow.
+# Configure arguments which allow disabling some optional libraries.
+AC_ARG_WITH([archive],
+            AS_HELP_STRING([--with-archive],
+                           [Build with libarchive which supports compressed model files @<:@default=check@:>@]),
+            [], [with_archive=check])
+AC_ARG_WITH([curl],
+            AS_HELP_STRING([--with-curl],
+                           [Build with libcurl which supports processing an image URL @<:@default=check@:>@]),
+            [], [with_curl=check])
 AC_ARG_WITH([tensorflow],
   AS_HELP_STRING([--with-tensorflow],
                  [support TensorFlow @<:@default=check@:>@]),
   [], [with_tensorflow=check])
+
+# Check whether to build with support for TensorFlow.
 AM_CONDITIONAL([TENSORFLOW], false)
 TENSORFLOW_LIBS=
 AS_IF([test "x$with_tensorflow" != xno],
-  [AC_CHECK_HEADERS(["tensorflow/core/framework/graph.pb.h"],
+  [AC_CHECK_HEADERS([tensorflow/core/framework/graph.pb.h],
     [AC_SUBST([TENSORFLOW_LIBS], ["-lprotobuf -ltensorflow_cc"])
       AM_CONDITIONAL([TENSORFLOW], true)
     ],
@@ -274,7 +317,7 @@ m4_define([MY_CHECK_FRAMEWORK],
     ])
    if test "$my_cv_framework_$1"="yes"; then
      AC_DEFINE(AS_TR_CPP([HAVE_FRAMEWORK_$1]), 1,
-            [Define if you have the  $1 framework])
+            [Define if you have the $1 framework])
      AS_TR_CPP([FRAMEWORK_$1])="-framework $1"
      AC_SUBST(AS_TR_CPP([FRAMEWORK_$1]))
    fi]
@@ -285,13 +328,14 @@ OPENCL_CPPFLAGS=''
 OPENCL_LDFLAGS=''
 case "${host_os}" in
   *darwin* | *-macos10*)
-    echo "checking for OpenCL framework"
-    MY_CHECK_FRAMEWORK([OpenCL])
-    if test $my_cv_framework_OpenCL = yes; then
-       have_opencl_lib=true
+    MY_CHECK_FRAMEWORK([Accelerate])
+    if test $my_cv_framework_Accelerate = yes; then
+      AM_CPPFLAGS="-DHAVE_FRAMEWORK_ACCELERATE $AM_CPPFLAGS"
+      AM_LDFLAGS="$AM_LDFLAGS -framework Accelerate"
     fi
+    MY_CHECK_FRAMEWORK([OpenCL])
     if test "$enable_opencl" = "yes"; then
-      if !($have_opencl_lib); then
+      if test $my_cv_framework_OpenCL = no; then
         AC_MSG_ERROR([Required OpenCL library not found!])
       fi
       AM_CPPFLAGS="-DUSE_OPENCL $AM_CPPFLAGS"
@@ -316,13 +360,13 @@ case "${host_os}" in
     fi
     ;;
 esac
-AM_CONDITIONAL([USE_OPENCL], [test "$enable_opencl" = "yes"])
+AM_CONDITIONAL([OPENCL], [test "$enable_opencl" = "yes"])
 AC_SUBST([OPENCL_CPPFLAGS])
 AC_SUBST([OPENCL_LDFLAGS])
 
 # check whether to build tesseract with -fvisibility=hidden -fvisibility-inlines-hidden
 # http://gcc.gnu.org/wiki/Visibility
-# http://groups.google.com/group/tesseract-dev/browse_thread/thread/976645ae98189127
+# https://groups.google.com/g/tesseract-dev/c/l2ZFrpgYkSc/m/_cdYSRDSXuUJ
 AC_MSG_CHECKING([--enable-visibility argument])
 AC_ARG_ENABLE([visibility],
   AS_HELP_STRING([--enable-visibility],
@@ -385,20 +429,18 @@ LT_INIT
 # C++ related options
 # ----------------------------------------
 dnl **********************
-dnl Turn on C++11 or newer
+dnl Turn on C++17 or newer
 dnl **********************
 
 CPLUSPLUS=
-AX_CHECK_COMPILE_FLAG([-std=c++11], [CPLUSPLUS=11], [], [$WERROR])
-AX_CHECK_COMPILE_FLAG([-std=c++14], [CPLUSPLUS=14], [], [$WERROR])
 AX_CHECK_COMPILE_FLAG([-std=c++17], [CPLUSPLUS=17], [], [$WERROR])
-#AX_CHECK_COMPILE_FLAG([-std=c++20], [CPLUSPLUS=20], [], [$WERROR])
+AX_CHECK_COMPILE_FLAG([-std=c++20], [CPLUSPLUS=20], [], [$WERROR])
 
 if test -z "$CPLUSPLUS"; then
-  AC_MSG_ERROR([Your compiler does not have the necessary C++11 support! Cannot proceed.])
+  AC_MSG_ERROR([Your compiler does not have the necessary C++17 support! Cannot proceed.])
 fi
 
-# Set C++11, C++14 or C++17 support based on platform/compiler
+# Set C++17 or newer support based on platform/compiler
 case "${host_os}" in
   cygwin*)
     CXXFLAGS="$CXXFLAGS -std=gnu++$CPLUSPLUS"
@@ -422,34 +464,51 @@ esac
 
 AC_SEARCH_LIBS([pthread_create], [pthread])
 
+# Set PKG_CONFIG_PATH for macOS with Homebrew unless it is already set.
+AC_CHECK_PROG([have_brew], brew, true, false)
+if $have_brew; then
+  brew_prefix=$(brew --prefix)
+  if test -z "$PKG_CONFIG_PATH"; then
+    PKG_CONFIG_PATH=$brew_prefix/opt/icu4c/lib/pkgconfig:$brew_prefix/opt/libarchive/lib/pkgconfig
+    export PKG_CONFIG_PATH
+  fi
+fi
 
 # ----------------------------------------
 # Check for programs needed to build documentation.
 # ----------------------------------------
 
-AC_CHECK_PROG([have_asciidoc], asciidoc, true, false)
-AC_CHECK_PROG([have_xsltproc], xsltproc, true, false)
-# MacOS with Homebrew requires the environment variable
-# XML_CATALOG_FILES for xsltproc.
+AM_CONDITIONAL([ASCIIDOC], false)
 AM_CONDITIONAL([HAVE_XML_CATALOG_FILES], false)
-if $have_asciidoc && $have_xsltproc; then
-  AM_CONDITIONAL([ASCIIDOC], true)
-  XML_CATALOG_FILES=
-  AC_CHECK_PROG([have_brew], brew, true, false)
-  if $have_brew; then
-    brew_prefix=$(brew --prefix)
-    catalog_file=$brew_prefix/etc/xml/catalog
-    if test -f $catalog_file; then
-      AM_CONDITIONAL([HAVE_XML_CATALOG_FILES], true)
-      XML_CATALOG_FILES=file:$catalog_file
-    else
-      AC_MSG_WARN([Missing file $catalog_file.])
+AC_ARG_ENABLE([doc],
+              AS_HELP_STRING([--disable-doc], [disable build of documentation])
+              [],
+              [: m4_divert_text([DEFAULTS], [enable_doc=check])])
+AS_IF([test "$enable_doc" != "no"], [
+  AC_CHECK_PROG([have_asciidoc], asciidoc, true, false)
+  AC_CHECK_PROG([have_xsltproc], xsltproc, true, false)
+  # macOS with Homebrew requires the environment variable
+  # XML_CATALOG_FILES for xsltproc.
+  if $have_asciidoc && $have_xsltproc; then
+    AM_CONDITIONAL([ASCIIDOC], true)
+    XML_CATALOG_FILES=
+    if $have_brew; then
+      catalog_file=$brew_prefix/etc/xml/catalog
+      if test -f $catalog_file; then
+        AM_CONDITIONAL([HAVE_XML_CATALOG_FILES], true)
+        XML_CATALOG_FILES=file:$catalog_file
+      else
+        AC_MSG_WARN([Missing file $catalog_file.])
+      fi
     fi
+    AC_SUBST([XML_CATALOG_FILES])
+  else
+    AS_IF([test "x$enable_doc" != xcheck], [
+      AC_MSG_FAILURE(
+        [--enable-doc was given, but test for asciidoc and xsltproc failed])
+    ])
   fi
-  AC_SUBST([XML_CATALOG_FILES])
-else
-  AM_CONDITIONAL([ASCIIDOC], false)
-fi
+])
 
 # ----------------------------------------
 # Checks for typedefs, structures, and compiler characteristics.
@@ -462,11 +521,19 @@ AC_CHECK_TYPES([long long int])
 # Test auxiliary packages
 # ----------------------------------------
 
-PKG_CHECK_MODULES([libcurl], [libcurl], [have_libcurl=true], [have_libcurl=false])
-AM_CONDITIONAL([HAVE_LIBCURL], $have_libcurl)
-if $have_libcurl; then
-  AC_DEFINE([HAVE_LIBCURL], [1], [Enable libcurl])
-fi
+AM_CONDITIONAL([HAVE_LIBCURL], false)
+AS_IF([test "x$with_curl" != xno], [
+  PKG_CHECK_MODULES([libcurl], [libcurl], [have_libcurl=true], [have_libcurl=false])
+  AM_CONDITIONAL([HAVE_LIBCURL], $have_libcurl)
+  if $have_libcurl; then
+    AC_DEFINE([HAVE_LIBCURL], [1], [Enable libcurl])
+  else
+    AS_IF([test "x$with_curl" != xcheck], [
+      AC_MSG_FAILURE(
+        [--with-curl was given, but test for libcurl failed])
+    ])
+  fi
+])
 
 PKG_CHECK_MODULES([LEPTONICA], [lept >= 1.74], [have_lept=true], [have_lept=false])
 if $have_lept; then
@@ -475,12 +542,20 @@ else
   AC_MSG_ERROR([Leptonica 1.74 or higher is required. Try to install libleptonica-dev package.])
 fi
 
-PKG_CHECK_MODULES([libarchive], [libarchive], [have_libarchive=true], [have_libarchive=false])
-AM_CONDITIONAL([HAVE_LIBARCHIVE], [$have_libarchive])
-if $have_libarchive; then
-  AC_DEFINE([HAVE_LIBARCHIVE], [1], [Enable libarchive])
-  CPPFLAGS="$CPPFLAGS $libarchive_CFLAGS"
-fi
+AM_CONDITIONAL([HAVE_LIBARCHIVE], false)
+AS_IF([test "x$with_archive" != xno], [
+  PKG_CHECK_MODULES([libarchive], [libarchive], [have_libarchive=true], [have_libarchive=false])
+  AM_CONDITIONAL([HAVE_LIBARCHIVE], [$have_libarchive])
+  if $have_libarchive; then
+    AC_DEFINE([HAVE_LIBARCHIVE], [1], [Enable libarchive])
+    CPPFLAGS="$CPPFLAGS $libarchive_CFLAGS"
+  else
+    AS_IF([test "x$with_archive" != xcheck], [
+      AC_MSG_FAILURE(
+        [--with-archive was given, but test for libarchive failed])
+    ])
+  fi
+])
 
 AM_CONDITIONAL([ENABLE_TRAINING], true)
 
@@ -490,14 +565,14 @@ PKG_CHECK_MODULES([ICU_I18N], [icu-i18n >= 52.1], [have_icu_i18n=true], [have_ic
 if !($have_icu_uc && $have_icu_i18n); then
   AC_MSG_WARN([icu 52.1 or higher is required, but was not found.])
   AC_MSG_WARN([Training tools WILL NOT be built.])
-  AC_MSG_WARN([Try to install libicu-devel package.])
+  AC_MSG_WARN([Try to install libicu-dev package.])
   AM_CONDITIONAL([ENABLE_TRAINING], false)
 fi
 
 # Check location of pango headers
-PKG_CHECK_MODULES([pango], [pango >= 1.22.0], [have_pango=true], [have_pango=false])
+PKG_CHECK_MODULES([pango], [pango >= 1.38.0], [have_pango=true], [have_pango=false])
 if !($have_pango); then
-        AC_MSG_WARN([pango 1.22.0 or higher is required, but was not found.])
+        AC_MSG_WARN([pango 1.38.0 or higher is required, but was not found.])
         AC_MSG_WARN([Training tools WILL NOT be built.])
         AC_MSG_WARN([Try to install libpango1.0-dev package.])
         AM_CONDITIONAL([ENABLE_TRAINING], false)
@@ -542,13 +617,15 @@ echo "$ sudo make install"
 echo "$ sudo ldconfig"
 echo ""
 
-AM_COND_IF([ASCIIDOC],
-  [
-   echo "This will also build the documentation."
+AM_COND_IF([ASCIIDOC], [
+  echo "This will also build the documentation."
+], [
+  AS_IF([test "$enable_doc" = "no"], [
+    echo "Documentation will not be built because it was disabled."
   ], [
-   echo "Documentation will not be built because asciidoc or xsltproc is missing."
-  ]
-)
+    echo "Documentation will not be built because asciidoc or xsltproc is missing."
+  ])
+])
 
 # echo "$ sudo make install LANGS=\"eng ara deu\""
 # echo "  Or:"
@@ -563,7 +640,7 @@ AM_COND_IF([ENABLE_TRAINING],
    echo "$ sudo make training-install"
    echo ""],
   [
-   echo "You can not build training tools because of missing dependency."
+   echo "You cannot build training tools because of missing dependency."
    echo "Check configure output for details."
    echo ""]
 )

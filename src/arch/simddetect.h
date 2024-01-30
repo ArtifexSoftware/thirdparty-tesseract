@@ -18,18 +18,19 @@
 #define TESSERACT_ARCH_SIMDDETECT_H_
 
 #include <tesseract/export.h>
+#include "tesstypes.h"
 
 namespace tesseract {
 
 // Function pointer for best calculation of dot product.
-using DotProductFunction = double (*)(const double*, const double*, int);
+using DotProductFunction = TFloat (*)(const TFloat *, const TFloat *, int);
 extern DotProductFunction DotProduct;
 
 // Architecture detector. Add code here to detect any other architectures for
 // SIMD-based faster dot product functions. Intended to be a single static
 // object, but it does no real harm to have more than one.
 class SIMDDetect {
- public:
+public:
   // Returns true if AVX is available on this system.
   static inline bool IsAVXAvailable() {
     return detector.avx_available_;
@@ -45,6 +46,10 @@ class SIMDDetect {
   // Returns true if AVX512 integer is available on this system.
   static inline bool IsAVX512BWAvailable() {
     return detector.avx512BW_available_;
+  }
+  // Returns true if AVX512 Vector Neural Network Instructions are available.
+  static inline bool IsAVX512VNNIAvailable() {
+    return detector.avx512VNNI_available_;
   }
   // Returns true if FMA is available on this system.
   static inline bool IsFMAAvailable() {
@@ -62,11 +67,11 @@ class SIMDDetect {
   // Update settings after config variable was set.
   static TESS_API void Update();
 
- private:
+private:
   // Constructor, must set all static member variables.
   SIMDDetect();
 
- private:
+private:
   // Singleton.
   static SIMDDetect detector;
   // If true, then AVX has been detected.
@@ -74,6 +79,7 @@ class SIMDDetect {
   static TESS_API bool avx2_available_;
   static TESS_API bool avx512F_available_;
   static TESS_API bool avx512BW_available_;
+  static TESS_API bool avx512VNNI_available_;
   // If true, then FMA has been detected.
   static TESS_API bool fma_available_;
   // If true, then SSe4.1 has been detected.
@@ -82,6 +88,6 @@ class SIMDDetect {
   static TESS_API bool neon_available_;
 };
 
-}  // namespace tesseract
+} // namespace tesseract
 
-#endif  // TESSERACT_ARCH_SIMDDETECT_H_
+#endif // TESSERACT_ARCH_SIMDDETECT_H_

@@ -1,4 +1,4 @@
-///////////////////////////////////////////////////////////////////////
+// SPDX-License-Identifier: Apache-2.0
 // File:        export.h
 // Description: Place holder
 //
@@ -12,28 +12,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-///////////////////////////////////////////////////////////////////////
 
 #ifndef TESSERACT_PLATFORM_H_
 #define TESSERACT_PLATFORM_H_
 
 #ifndef TESS_API
-# if defined(_WIN32) || defined(__CYGWIN__)
-#  if defined(TESS_EXPORTS)
-#    define TESS_API __declspec(dllexport)
-#  elif defined(TESS_IMPORTS)
-#    define TESS_API __declspec(dllimport)
+#  if defined(_WIN32) || defined(__CYGWIN__)
+#    if defined(TESS_EXPORTS)
+#      define TESS_API __declspec(dllexport)
+#    elif defined(TESS_IMPORTS)
+#      define TESS_API __declspec(dllimport)
+#    else
+#      define TESS_API
+#    endif
 #  else
-#    define TESS_API
+#    if defined(TESS_EXPORTS) || defined(TESS_IMPORTS)
+#      define TESS_API __attribute__((visibility("default")))
+#    else
+#      define TESS_API
+#    endif
 #  endif
-# else
-#  if defined(TESS_EXPORTS) || defined(TESS_IMPORTS)
-#    define TESS_API __attribute__((visibility("default")))
-#  else
-#    define TESS_API
-#  endif
-# endif
 #endif
 
-#endif  // TESSERACT_PLATFORM_H_
+#endif // TESSERACT_PLATFORM_H_

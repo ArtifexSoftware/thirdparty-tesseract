@@ -21,24 +21,51 @@
 #define TESSERACT_CCUTIL_HELPERS_H_
 
 #include <cassert>
-#include <cmath>      // std::isfinite
+#include <climits> // for INT_MIN, INT_MAX
+#include <cmath> // std::isfinite
 #include <cstdio>
 #include <cstring>
+#include <algorithm>  // for std::find
 #include <functional>
 #include <random>
 #include <string>
+#include <vector>
+
+#include "serialis.h"
 
 namespace tesseract {
 
+template <class T>
+inline bool contains(const std::vector<T> &data, const T &value) {
+  return std::find(data.begin(), data.end(), value) != data.end();
+}
+
+inline const std::vector<std::string> split(const std::string &s, char c) {
+  std::string buff;
+  std::vector<std::string> v;
+  for (auto n : s) {
+    if (n != c) {
+      buff += n;
+    } else if (n == c && !buff.empty()) {
+      v.push_back(buff);
+      buff.clear();
+    }
+  }
+  if (!buff.empty()) {
+    v.push_back(buff);
+  }
+  return v;
+}
+
 // A simple linear congruential random number generator.
 class TRand {
- public:
+public:
   // Sets the seed to the given value.
   void set_seed(uint64_t seed) {
     e.seed(seed);
   }
   // Sets the seed using a hash of a string.
-  void set_seed(const std::string& str) {
+  void set_seed(const std::string &str) {
     std::hash<std::string> hasher;
     set_seed(static_cast<uint64_t>(hasher(str)));
   }
@@ -56,23 +83,15 @@ class TRand {
     return range * IntRand() / INT32_MAX;
   }
 
- private:
+private:
   std::minstd_rand e;
 };
 
 // Remove newline (if any) at the end of the string.
-inline void chomp_string(char* str) {
+inline void chomp_string(char *str) {
   int last_index = static_cast<int>(strlen(str)) - 1;
-  while (last_index >= 0 &&
-         (str[last_index] == '\n' || str[last_index] == '\r')) {
+  while (last_index >= 0 && (str[last_index] == '\n' || str[last_index] == '\r')) {
     str[last_index--] = '\0';
-  }
-}
-
-// Advance the current pointer of the file if it points to a newline character.
-inline void SkipNewline(FILE* file) {
-  if (fgetc(file) != '\n') {
-    fseek(file, -1, SEEK_CUR);
   }
 }
 
@@ -83,7 +102,7 @@ inline int RoundUp(int n, int block_size) {
 
 // Clip a numeric value to the interval [lower_bound, upper_bound].
 template <typename T>
-inline T ClipToRange(const T& x, const T& lower_bound, const T& upper_bound) {
+inline T ClipToRange(const T &x, const T &lower_bound, const T &upper_bound) {
   if (x < lower_bound) {
     return lower_bound;
   }
@@ -95,7 +114,7 @@ inline T ClipToRange(const T& x, const T& lower_bound, const T& upper_bound) {
 
 // Extend the range [lower_bound, upper_bound] to include x.
 template <typename T1, typename T2>
-inline void UpdateRange(const T1& x, T2* lower_bound, T2* upper_bound) {
+inline void UpdateRange(const T1 &x, T2 *lower_bound, T2 *upper_bound) {
   if (x < *lower_bound) {
     *lower_bound = x;
   }
@@ -106,8 +125,7 @@ inline void UpdateRange(const T1& x, T2* lower_bound, T2* upper_bound) {
 
 // Decrease lower_bound to be <= x_lo AND increase upper_bound to be >= x_hi.
 template <typename T1, typename T2>
-inline void UpdateRange(const T1& x_lo, const T1& x_hi, T2* lower_bound,
-                        T2* upper_bound) {
+inline void UpdateRange(const T1 &x_lo, const T1 &x_hi, T2 *lower_bound, T2 *upper_bound) {
   if (x_lo < *lower_bound) {
     *lower_bound = x_lo;
   }
@@ -120,8 +138,7 @@ inline void UpdateRange(const T1& x_lo, const T1& x_hi, T2* lower_bound,
 // putting the result back in [*lower2, *upper2].
 // If non-intersecting ranges are given, we end up with *lower2 > *upper2.
 template <typename T>
-inline void IntersectRange(const T& lower1, const T& upper1, T* lower2,
-                           T* upper2) {
+inline void IntersectRange(const T &lower1, const T &upper1, T *lower2, T *upper2) {
   if (lower1 > *lower2) {
     *lower2 = lower1;
   }
@@ -152,6 +169,8 @@ inline int DivRounded(int a, int b) {
 // Return a double cast to int with rounding.
 inline int IntCastRounded(double x) {
   assert(std::isfinite(x));
+  assert(x < INT_MAX);
+  assert(x > INT_MIN);
   return x >= 0.0 ? static_cast<int>(x + 0.5) : -static_cast<int>(-x + 0.5);
 }
 
@@ -162,9 +181,9 @@ inline int IntCastRounded(float x) {
 }
 
 // Reverse the order of bytes in a n byte quantity for big/little-endian switch.
-inline void ReverseN(void* ptr, int num_bytes) {
+inline void ReverseN(void *ptr, int num_bytes) {
   assert(num_bytes == 1 || num_bytes == 2 || num_bytes == 4 || num_bytes == 8);
-  char* cptr = static_cast<char*>(ptr);
+  char *cptr = static_cast<char *>(ptr);
   int halfsize = num_bytes / 2;
   for (int i = 0; i < halfsize; ++i) {
     char tmp = cptr[i];
@@ -173,21 +192,79 @@ inline void ReverseN(void* ptr, int num_bytes) {
   }
 }
 
-// Reverse the order of bytes in a 16 bit quantity for big/little-endian switch.
-inline void Reverse16(void* ptr) {
-  ReverseN(ptr, 2);
-}
-
 // Reverse the order of bytes in a 32 bit quantity for big/little-endian switch.
-inline void Reverse32(void* ptr) {
+inline void Reverse32(void *ptr) {
   ReverseN(ptr, 4);
 }
 
-// Reverse the order of bytes in a 64 bit quantity for big/little-endian switch.
-inline void Reverse64(void* ptr) {
-  ReverseN(ptr, 8);
+// Reads a vector of simple types from the given file. Assumes that bitwise
+// read/write will work with ReverseN according to sizeof(T).
+// Returns false in case of error.
+// If swap is true, assumes a big/little-endian swap is needed.
+template <typename T>
+bool DeSerialize(bool swap, FILE *fp, std::vector<T> &data) {
+  uint32_t size;
+  if (fread(&size, sizeof(size), 1, fp) != 1) {
+    return false;
+  }
+  if (swap) {
+    Reverse32(&size);
+  }
+  // Arbitrarily limit the number of elements to protect against bad data.
+  assert(size <= UINT16_MAX);
+  if (size > UINT16_MAX) {
+    return false;
+  }
+  // TODO: optimize.
+  data.resize(size);
+  if (size > 0) {
+    if (fread(&data[0], sizeof(T), size, fp) != size) {
+      return false;
+    }
+    if (swap) {
+      for (uint32_t i = 0; i < size; ++i) {
+        ReverseN(&data[i], sizeof(T));
+      }
+    }
+  }
+  return true;
 }
 
-}  // namespace tesseract
+// Writes a vector of simple types to the given file. Assumes that bitwise
+// read/write of T will work. Returns false in case of error.
+template <typename T>
+bool Serialize(FILE *fp, const std::vector<T> &data) {
+  uint32_t size = data.size();
+  if (fwrite(&size, sizeof(size), 1, fp) != 1) {
+    return false;
+  } else if constexpr (std::is_class<T>::value) {
+    // Serialize a tesseract class.
+    for (auto &item : data) {
+      if (!item.Serialize(fp)) {
+        return false;
+      }
+    }
+  } else if constexpr (std::is_pointer<T>::value) {
+    // Serialize pointers.
+    for (auto &item : data) {
+      uint8_t non_null = (item != nullptr);
+      if (!Serialize(fp, &non_null)) {
+        return false;
+      }
+      if (non_null) {
+        if (!item->Serialize(fp)) {
+          return false;
+        }
+      }
+    }
+  } else if (size > 0) {
+    if (fwrite(&data[0], sizeof(T), size, fp) != size) {
+      return false;
+    }
+  }
+  return true;
+}
 
-#endif  // TESSERACT_CCUTIL_HELPERS_H_
+} // namespace tesseract
+
+#endif // TESSERACT_CCUTIL_HELPERS_H_

@@ -17,18 +17,16 @@
 //  Author:   Ray Smith
 
 #ifdef HAVE_CONFIG_H
-#include "config_auto.h"
+#  include "config_auto.h"
 #endif
 
 #include "commontraining.h"
 #include "mastertrainer.h"
 #include "params.h"
-#include "strngs.h"
 
 using namespace tesseract;
 
-static INT_PARAM_FLAG(display_cloud_font, -1,
-                      "Display cloud of this font, canonical_class1");
+static INT_PARAM_FLAG(display_cloud_font, -1, "Display cloud of this font, canonical_class1");
 static INT_PARAM_FLAG(display_canonical_font, -1,
                       "Display canonical sample of this font, canonical_class2");
 static STRING_PARAM_FLAG(canonical_class1, "", "Class to show ambigs for");
@@ -48,28 +46,25 @@ int main(int argc, char **argv) {
 
   ParseArguments(&argc, &argv);
 
-  STRING file_prefix;
-  auto trainer =
-      tesseract::LoadTrainingData(argc, argv, false, nullptr, &file_prefix);
+  std::string file_prefix;
+  auto trainer = tesseract::LoadTrainingData(argv + 1, false, nullptr, file_prefix);
 
-  if (!trainer)
-    return 1;
+  if (!trainer) {
+    return EXIT_FAILURE;
+  }
 
   if (FLAGS_display_cloud_font >= 0) {
 #ifndef GRAPHICS_DISABLED
-    trainer->DisplaySamples(FLAGS_canonical_class1.c_str(),
-                            FLAGS_display_cloud_font,
-                            FLAGS_canonical_class2.c_str(),
-                            FLAGS_display_canonical_font);
+    trainer->DisplaySamples(FLAGS_canonical_class1.c_str(), FLAGS_display_cloud_font,
+                            FLAGS_canonical_class2.c_str(), FLAGS_display_canonical_font);
 #endif // !GRAPHICS_DISABLED
-    return 0;
+    return EXIT_SUCCESS;
   } else if (!FLAGS_canonical_class1.empty()) {
-    trainer->DebugCanonical(FLAGS_canonical_class1.c_str(),
-                            FLAGS_canonical_class2.c_str());
-    return 0;
+    trainer->DebugCanonical(FLAGS_canonical_class1.c_str(), FLAGS_canonical_class2.c_str());
+    return EXIT_SUCCESS;
   }
   trainer->SetupMasterShapes();
   WriteShapeTable(file_prefix, trainer->master_shapes());
 
-  return 0;
+  return EXIT_SUCCESS;
 } /* main */

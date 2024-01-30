@@ -1,43 +1,40 @@
 name: unittest
-# autotools build on ubuntu and macos homebrew, unittests with address sanitizers.
-# LSTMTrainerTest.DeterminismTest fails on Ubuntu 18.04 clang++-9 Issue #3258
+# autotools build on ubuntu. unittests with address sanitizers. with openmp.
+# ubuntu-20.04-gcc-unittest - CI runs out of diskspace.
 on:
   #push:
   schedule:
-    - cron: 0 19 * * *
+    - cron: 0 0 * * *
+  workflow_dispatch:
 
 jobs:
-  build:
+  sanitizers:
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
         config:
-          - { name: ubuntu-18.04-gcc-unittest, os: ubuntu-18.04, cc: gcc,  cxx: g++ }
-          - { name: ubuntu-20.04-gcc-unittest, os: ubuntu-20.04, cc: gcc,  cxx: g++ }
-          - { name: ubuntu-20.04-clang-unittest, os: ubuntu-20.04, cc: clang,  cxx: clang++ }
-          - { name: macos-10.15-gcc-unittest, os: macos-10.15, cc: gcc, cxx: g++ }
-          - { name: macos-10.15-clang-unittest, os: macos-10.15, cc: clang, cxx: clang++ }
-
+          - { name: ubuntu-20.04-gcc-unittest, os: ubuntu-20.04, cxx: g++, cxxflags: '-g -O2 -fsanitize=address,undefined' }
+          - { name: ubuntu-22.04-clang-unittest, os: ubuntu-22.04, cxx: clang++, cxxflags: '-g -O2 -fsanitize=address,undefined -stdlib=libc++' }
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
 
+    - name: Remove Homebrew, Android and .NET to provide more disk space
+      run: |
+           # https://github.com/actions/virtual-environments/issues/2606#issuecomment-772683150
+           sudo rm -rf /home/linuxbrew # will release Homebrew
+           sudo rm -rf /usr/local/lib/android # will release about 10 GB if you don't need Android
+           sudo rm -rf /usr/share/dotnet # will release about 20GB if you don't need .NET
+
     - name: Install dependencies (Linux)
       run: |
-           sudo apt-get install autoconf-archive libleptonica-dev libpango1.0-dev -y
+           sudo apt-get update
+           sudo apt-get install autoconf libleptonica-dev libpango1.0-dev -y
            sudo apt-get install cabextract -y
-      if: runner.os == 'Linux'
 
-    - name: Install dependencies (MacOS Homebrew)
-      run: |
-           brew install automake autoconf-archive libarchive
-           brew install leptonica cairo pango
-           brew install cabextract abseil
-      if: runner.os == 'macOS'
-           
     - name: Setup
       run: |
            mkdir -p m4
@@ -45,45 +42,33 @@ jobs:
 
     - name: Configure (Linux)
       run: |
-           ./configure '--disable-shared' \
-                'CC=${{ matrix.config.cc }}' \
-                'CXX=${{ matrix.config.cxx }}' \
-                'CXXFLAGS=-g -O2 -fsanitize=address,undefined'
-      if: runner.os == 'Linux'
-
-    - name: Configure (MacOS Homebrew)
-      run: |
-           ./configure '--disable-shared' '--with-pic' \
-                'CC=${{ matrix.config.cc }}' \
-                'CXX=${{ matrix.config.cxx }}' \
-                'CXXFLAGS=-g -O2 -fsanitize=address,undefined' \
-                'PKG_CONFIG_PATH=/usr/local/opt/icu4c/lib/pkgconfig:/usr/local/opt/libarchive/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig'
-      if: runner.os == 'macOS'
+           ./configure '--disable-shared' 'CXX=${{ matrix.config.cxx }}' \
+               'CXXFLAGS=${{ matrix.config.cxxflags }}'
 
     - name: Make and Install Tesseract
       run: |
-           make -j 8
+           ${{ matrix.config.cxx }} --version
+           make
            sudo make install
 
     - name: Make and Install Training Tools
       run: |
-           make training -j 8
+           make training
            sudo make training-install
-      
-    - name: Display Version
+
+    - name: Display Tesseract and Training Tools Version
       run: |
-           ${{ matrix.config.cxx }} --version
            tesseract -v
            lstmtraining -v
            text2image -v
       if: success() || failure()
-        
+
     - name: Download fonts, tessdata and langdata required for tests
       run: |
            git clone https://github.com/egorpugin/tessdata tessdata_unittest
-           cp tessdata_unittest/fonts/* test/testing/ 
+           cp tessdata_unittest/fonts/* test/testing/
            mv tessdata_unittest/* ../
-      
+
     - name: Run Tesseract on phototest.tif and devatest.png
       run: |
            tesseract test/testing/phototest.tif -  --tessdata-dir ../tessdata
@@ -91,11 +76,11 @@ jobs:
 
     - name: Make and run Unit Tests
       run: |
-           make check -j 4
-      
-    - name: Display Unit Tests Report
+           make check
+
+    - name: Display Unit Tests Report and Compiler Version
       run: |
            cat test-suite.log
            ${{ matrix.config.cxx }} --version
-           git log -3 --pretty=format:'%h %ad %s | %an' 
+           git log -3 --pretty=format:'%h %ad %s | %an'
       if: always()

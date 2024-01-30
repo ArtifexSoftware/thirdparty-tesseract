@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "genericvector.h"
 #include "kdpair.h"
 #include "statistc.h"
 
@@ -20,15 +19,16 @@ namespace tesseract {
 const int kTestData[] = {2, 0, 12, 1, 1, 2, 10, 1, 0, 0, 0, 2, 0, 4, 1, 1};
 
 class STATSTest : public testing::Test {
- public:
-  void SetUp() {
+public:
+  void SetUp() override {
     std::locale::global(std::locale(""));
-    stats_.set_range(0, 16);
-    for (size_t i = 0; i < ARRAYSIZE(kTestData); ++i)
+    stats_.set_range(0, 15);
+    for (size_t i = 0; i < countof(kTestData); ++i) {
       stats_.add(i, kTestData[i]);
+    }
   }
 
-  void TearDown() {}
+  void TearDown() override {}
 
   STATS stats_;
 };
@@ -40,10 +40,17 @@ TEST_F(STATSTest, BasicStats) {
   EXPECT_EQ(12, stats_.pile_count(2));
 }
 
+TEST_F(STATSTest, InitStats) {
+  STATS stats;
+  EXPECT_EQ(0, stats.get_total());
+  EXPECT_EQ(0, stats.mode());
+  EXPECT_EQ(0, stats.pile_count(2));
+}
+
 // Tests the top_n_modes function.
 TEST_F(STATSTest, TopNModes) {
-  GenericVector<tesseract::KDPairInc<float, int> > modes;
-  int num_modes = stats_.top_n_modes(3, &modes);
+  std::vector<tesseract::KDPairInc<float, int> > modes;
+  int num_modes = stats_.top_n_modes(3, modes);
   EXPECT_EQ(3, num_modes);
   // Mode0 is 12 1 1 = 14 total count with a mean of 2 3/14.
   EXPECT_FLOAT_EQ(2.0f + 3.0f / 14, modes[0].key());
@@ -56,4 +63,4 @@ TEST_F(STATSTest, TopNModes) {
   EXPECT_EQ(6, modes[2].data());
 }
 
-}  // namespace.
+} // namespace tesseract
